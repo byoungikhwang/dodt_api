@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <img src="{{ user.picture }}" alt="{{ user.name }}" class="rounded-circle mb-3" width="100"
+                    height="100">
+                <h5 class="card-title">{{ user.name }}</h5>
+                <p class="card-text text-muted">{{ user.email }}</p>
+                <span class="badge bg-info">{{ user.role }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <h3>Analysis History</h3>
+        {% if history %}
+        <div class="list-group">
+            {% for item in history %}
+            <div class="list-group-item list-group-item-action">
+                <div class="d-flex w-100 justify-content-between">
+                    <a href="{{ item.filelink }}">
+                        <h5 class="mb-1">{{ item.filename }}</h5>
+                    </a>
+                    <small>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </div>
+                <p class="mb-1">
+                    Clusters: {{ item.result.clusters }} |
+                    Total Users: {{ item.result.total_users }}
+                </p>
+                <small>Personas:
+                    {% for p in item.result.personas %}
+                    {{ p.name }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </small>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            No analysis history found. <a href="/dashboard">Start a new analysis</a>.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    margin-bottom: 20px;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.persona-card {
+    transition: transform 0.2s;
+}
+
+.persona-card:hover {
+    transform: translateY(-5px);
+}
+
+.feature-list {
+    font-size: 0.9em;
+    color: #666;
+}

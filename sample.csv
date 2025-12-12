@@ -1,0 +1,11 @@
+user_id,age,purchase_count,last_visit_days_ago,category
+1,25,5,2,Electronics
+2,34,12,1,Fashion
+3,45,2,30,Home
+4,22,8,5,Electronics
+5,55,1,60,Home
+6,30,15,3,Fashion
+7,28,4,10,Electronics
+8,40,3,25,Home
+9,35,10,2,Fashion
+10,50,0,90,Books
