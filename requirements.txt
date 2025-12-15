@@ -2,7 +2,6 @@ fastapi
 uvicorn[standard]
 jinja2
 python-multipart
-requests
 pandas
 scikit-learn
 asyncpg
@@ -10,3 +9,4 @@ python-jose[cryptography]
 passlib[bcrypt]
 python-dotenv
 httpx
+pydantic-settings

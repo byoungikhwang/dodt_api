@@ -1,3 +1,4 @@
+import asyncpg
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.config.settings import settings
@@ -24,8 +25,21 @@ app.include_router(recommend_router.router)
 
 @app.on_event("startup")
 async def startup_event():
-    print("Application started")
+    print("Application started. Connecting to database...")
+    try:
+        app.state.db_pool = await asyncpg.create_pool(
+            dsn=settings.DATABASE_URL,
+            min_size=5,
+            max_size=20
+        )
+        print("Database connection pool created successfully.")
+    except Exception as e:
+        print(f"Failed to create database connection pool: {e}")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    print("Application shutdown")
+    print("Application shutdown. Closing database connection pool...")
+    if hasattr(app.state, 'db_pool'):
+        await app.state.db_pool.close()
+        print("Database connection pool closed.")
