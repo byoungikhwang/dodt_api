@@ -1,3 +1,4 @@
+import logging
 import asyncpg
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -5,6 +6,8 @@ from app.config.settings import settings
 from app.middlewares.logging_middleware import LoggingMiddleware
 # [Modified] recommend_router 추가 임포트
 from app.routers import auth_router, index_router, analysis_router, admin_router, user_router, recommend_router
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.PROJECT_NAME, version=settings.PROJECT_VERSION)
 
@@ -25,21 +28,21 @@ app.include_router(recommend_router.router)
 
 @app.on_event("startup")
 async def startup_event():
-    print("Application started. Connecting to database...")
+    logger.info("Application started. Connecting to database...")
     try:
         app.state.db_pool = await asyncpg.create_pool(
             dsn=settings.DATABASE_URL,
             min_size=5,
             max_size=20
         )
-        print("Database connection pool created successfully.")
+        logger.info("Database connection pool created successfully.")
     except Exception as e:
-        print(f"Failed to create database connection pool: {e}")
+        logger.error(f"Failed to create database connection pool: {e}")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    print("Application shutdown. Closing database connection pool...")
+    logger.info("Application shutdown. Closing database connection pool...")
     if hasattr(app.state, 'db_pool'):
         await app.state.db_pool.close()
-        print("Database connection pool closed.")
+        logger.info("Database connection pool closed.")

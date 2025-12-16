@@ -1,0 +1,27 @@
+좋습니다! `git`이 모든 변경사항을 성공적으로 인식했으며, 제가 수정한 모든 파일과 새로 생성한 파일들이 커밋을 위해 스테이징되었습니다.
+
+이제, 오늘 작업한 모든 내용을 요약하는 커밋 메시지를 작성하여 커밋을 생성하겠습니다.
+
+**제안하는 커밋 메시지:**
+```
+feat: Comprehensive review, refactor, and bugfix
+
+This commit includes a wide range of improvements and fixes based on a full-project review.
+
+- Refactored configuration loading to use Pydantic settings for a single source of truth.
+- Centralized all secrets and configuration variables (DB, Google OAuth, JWT, etc.) into the settings module.
+- Replaced all `print()` statements with structured logging for better monitoring.
+- Pinned all dependencies in `requirements.txt` for reproducible builds.
+- Fixed a critical `KeyError: 'role'` by adding the `role` column to the `users` table and schema.
+- Resolved a complex series of Google OAuth2 bugs:
+    - Corrected `redirect_uri_mismatch` by aligning `.env`, Google Console, and application access methods.
+    - Resolved `invalid_request` (`device_id` required for private IP) by adding necessary parameters.
+    - Fixed a subsequent `invalid_request` (`device_id` not for web apps) after moving to a `localhost` setup.
+    - Identified and fixed a `401 Unauthorized` error by correcting the `GOOGLE_CLIENT_SECRET`.
+    - Identified and provided a workaround for a system environment variable override issue.
+- Refactored test suite to use `pytest` fixtures and assertions, and to clean up created files.
+- Cleaned up `db/schema.sql` to contain only DDL statements.
+- Fixed a `NameError` in `auth_router.py` caused by an accidental deletion during cleanup.
+```
+
+위 메시지로 커밋을 생성하는 것에 동의하십니까?

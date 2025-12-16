@@ -1,17 +1,17 @@
-import os
-import httpx
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from app.dependencies.db_connection import get_db_connection
 from app.services.users_service import UserService
 from app.auth.jwt_handler import create_access_token
+from app.config.settings import settings
 import asyncpg
+import httpx
 
 router = APIRouter()
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
+GOOGLE_REDIRECT_URI = settings.GOOGLE_REDIRECT_URI
 
 @router.get("/rest/oauth2-credential/callback")
 async def google_callback(code: str, request: Request, user_service: UserService = Depends(), conn: asyncpg.Connection = Depends(get_db_connection)):

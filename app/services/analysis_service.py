@@ -9,13 +9,15 @@ import random
 
 import uuid
 import os
+from app.config.settings import settings # settings 임포트 추가
 
 class AnalysisService:
     async def process_csv(self, file: UploadFile, user: dict, conn):
         # Generate unique filename
         file_ext = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        file_path = f"app/static/files/{unique_filename}"
+        file_path = os.path.join(settings.UPLOAD_DIRECTORY, unique_filename) # 설정 사용
+
         
         # Save file
         content = await file.read()
