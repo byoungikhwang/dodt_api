@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Type 2{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>AI Persona Generation (Type 2)</h1>
+    <p>Create a new persona by providing detailed characteristics and an optional photo.</p>
+
+    <div class="card p-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title mb-3">Persona Details</h5>
+            <form id="persona-generation-form">
+                <div class="mb-3">
+                    <label for="gender" class="form-label">Gender</label>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="gender" id="genderMale" value="male">
+                        <label class="form-check-label" for="genderMale">Male</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="gender" id="genderFemale" value="female">
+                        <label class="form-check-label" for="genderFemale">Female</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="heightRange" class="form-label">Height (cm): <span id="heightValue">165</span></label>
+                    <input type="range" class="form-range" min="145" max="190" value="165" id="heightRange" name="height">
+                </div>
+
+                <div class="mb-3">
+                    <label for="bodyType" class="form-label">Body Type</label>
+                    <select class="form-select" id="bodyType" name="body_type">
+                        <option value="slim">Slim</option>
+                        <option value="average">Average</option>
+                        <option value="athletic">Athletic</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label for="style" class="form-label">Style</label>
+                    <input type="text" class="form-control" id="style" name="style" placeholder="e.g., Casual, Formal, Street">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Color Tone (select up to 3)</label>
+                    <div class="form-check">
+                        <input class="form-check-input color-checkbox" type="checkbox" value="red" id="colorRed" name="color_tone">
+                        <label class="form-check-label" for="colorRed">Red</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input color-checkbox" type="checkbox" value="blue" id="colorBlue" name="color_tone">
+                        <label class="form-check-label" for="colorBlue">Blue</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input color-checkbox" type="checkbox" value="green" id="colorGreen" name="color_tone">
+                        <label class="form-check-label" for="colorGreen">Green</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input color-checkbox" type="checkbox" value="yellow" id="colorYellow" name="color_tone">
+                        <label class="form-check-label" for="colorYellow">Yellow</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input color-checkbox" type="checkbox" value="black" id="colorBlack" name="color_tone">
+                        <label class="form-check-label" for="colorBlack">Black</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input color-checkbox" type="checkbox" value="white" id="colorWhite" name="color_tone">
+                        <label class="form-check-label" for="colorWhite">White</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="photoUpload" class="form-label">Upload Photo (Optional)</label>
+                    <input class="form-control" type="file" id="photoUpload" name="photo" accept="image/*">
+                </div>
+
+                <button type="submit" class="btn btn-primary">Generate Persona</button>
+            </form>
+            <div id="generation-status" class="mt-3"></div>
+            <div id="generation-results" class="mt-3">
+                <!-- Persona generation results will be displayed here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const heightRange = document.getElementById('heightRange');
+    const heightValue = document.getElementById('heightValue');
+    heightRange.addEventListener('input', function() {
+        heightValue.textContent = heightRange.value;
+    });
+
+    const colorCheckboxes = document.querySelectorAll('.color-checkbox');
+    colorCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.color-checkbox:checked').length;
+            if (checkedCount > 3) {
+                this.checked = false;
+                alert('You can select a maximum of 3 color tones.');
+            }
+        });
+    });
+
+    const personaGenerationForm = document.getElementById('persona-generation-form');
+    const generationStatus = document.getElementById('generation-status');
+    const generationResults = document.getElementById('generation-results');
+
+    personaGenerationForm.addEventListener('submit', async function(event) {
+        event.preventDefault();
+
+        generationStatus.innerHTML = '<div class="alert alert-info">Generating persona...</div>';
+        generationResults.innerHTML = '';
+
+        const formData = new FormData();
+        // Append text inputs
+        formData.append('gender', personaGenerationForm.querySelector('input[name="gender"]:checked')?.value || '');
+        formData.append('height', heightRange.value);
+        formData.append('body_type', document.getElementById('bodyType').value);
+        formData.append('style', document.getElementById('style').value);
+        
+        // Append selected color tones
+        document.querySelectorAll('.color-checkbox:checked').forEach((checkbox, index) => {
+            formData.append(`color_tone_${index}`, checkbox.value);
+        });
+
+        // Append photo file
+        const photoFile = document.getElementById('photoUpload').files[0];
+        if (photoFile) {
+            formData.append('photo', photoFile);
+        }
+
+        try {
+            // Placeholder API endpoint, will need to be created on the backend
+            const response = await fetch('/api/persona/generate', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Persona generation failed');
+            }
+
+            const result = await response.json();
+            generationStatus.innerHTML = '<div class="alert alert-success">Persona generated successfully!</div>';
+            generationResults.innerHTML = `
+                <h5>Generated Persona:</h5>
+                <pre>${JSON.stringify(result, null, 2)}</pre>
+            `;
+
+        } catch (error) {
+            generationStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            console.error('Persona generation error:', error);
+        }
+    });
+});
+</script>
+{% endblock %}

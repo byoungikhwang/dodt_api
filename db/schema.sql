@@ -5,9 +5,12 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
+    custom_id VARCHAR(10) UNIQUE,
     name VARCHAR(255),
     picture VARCHAR(512),
-    role VARCHAR(50) DEFAULT 'MEMBER', -- Added role column
+    role VARCHAR(50) DEFAULT 'MEMBER',
+    credits INTEGER DEFAULT 1,
+    last_credit_grant_date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -63,3 +66,13 @@ ALTER TABLE users RENAME COLUMN email TO user_email;
 --5. 테이블 이름 변경 (RENAME TO) 테이블 자체의 이름을 바꿉니다.
 #예제 (users를 members로 변경): 
 ALTER TABLE users RENAME TO members;
+
+-- 6. 비디오 테이블 (관리자 업로드용)
+CREATE TABLE IF NOT EXISTS videos (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    filename VARCHAR(255) NOT NULL,
+    filepath VARCHAR(512) NOT NULL,
+    uploaded_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

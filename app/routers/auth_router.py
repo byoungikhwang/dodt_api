@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.templating import Jinja2Templates # Import Jinja2Templates
+
 from app.dependencies.db_connection import get_db_connection
 from app.services.users_service import UserService
 from app.auth.jwt_handler import create_access_token
@@ -9,9 +11,17 @@ import httpx
 
 router = APIRouter()
 
+# Initialize Jinja2Templates
+templates = Jinja2Templates(directory="app/templates")
+
 GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET
 GOOGLE_REDIRECT_URI = settings.GOOGLE_REDIRECT_URI
+
+@router.get("/login")
+async def login(request: Request):
+    """Serves the login page."""
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @router.get("/rest/oauth2-credential/callback")
 async def google_callback(code: str, request: Request, user_service: UserService = Depends(), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -51,7 +61,6 @@ async def google_callback(code: str, request: Request, user_service: UserService
         })
         
         # Redirect to dashboard with token (in a real app, maybe set cookie or redirect to a frontend that handles the token)
-        # For this MVP, we might just return the token or redirect to dashboard and let dashboard read it from URL?
         # Or better, set it as a cookie.
         response = RedirectResponse(url="/dashboard")
         response.set_cookie(key="access_token", value=f"Bearer {jwt_token}", httponly=True)

@@ -1,77 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}관리자 페이지{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <h1>Admin Dashboard</h1>
-        <p class="lead">Welcome, {{ user.name }} ({{ user.role }})</p>
-    </div>
-</div>
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link active" aria-current="page" href="/admin/dashboard">User Management</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" href="/admin/videos">Video Management</a>
+        </li>
+    </ul>
+    <h1>사용자 데이터</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Custom ID</th>
+                <th>이름</th>
+                <th>이메일</th>
+                <th>Role</th>
+                <th>Credits</th>
+                <th>가입일</th>
+            </tr>
+        </thead>
+        <tbody id="user-data">
+            <!-- 사용자 데이터가 여기에 동적으로 추가됩니다. -->
+        </tbody>
+    </table>
+{% endblock %}
 
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card text-white bg-primary mb-3">
-            <div class="card-header">Total Users</div>
-            <div class="card-body">
-                <h5 class="card-title display-4">{{ users_count }}</h5>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card mb-3">
-            <div class="card-header">Growth (Mock)</div>
-            <div class="card-body">
-                <canvas id="growthChart" height="100"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-12">
-        <h3>Member List</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Picture</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for member in members %}
-                <tr>
-                    <td>{{ member.id }}</td>
-                    <td><img src="{{ member.picture }}" alt="{{ member.name }}" width="30" height="30"
-                            class="rounded-circle"></td>
-                    <td>{{ member.name }}</td>
-                    <td>{{ member.email }}</td>
-                    <td>{{ member.role }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const ctx = document.getElementById('growthChart').getContext('2d');
-    const growthChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{
-                label: 'New Users',
-                data: [12, 19, 3, 5, 2, 3],
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-            }]
-        }
-    });
-</script>
+{% block scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/admin/users') // Changed to new API endpoint
+                .then(response => response.json())
+                .then(data => {
+                    const userData = document.getElementById('user-data');
+                    data.forEach(user => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${user.id}</td>
+                            <td>${user.custom_id || 'N/A'}</td>
+                            <td>${user.name || 'N/A'}</td>
+                            <td>${user.email}</td>
+                            <td>${user.role}</td>
+                            <td>${user.credits}</td>
+                            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                        `;
+                        userData.appendChild(row);
+                    });
+                })
+                .catch(error => console.error('Error fetching user data:', error));
+        });
+    </script>
 {% endblock %}

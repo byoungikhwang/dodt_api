@@ -1,3 +1,7 @@
 **/*.pyc
 .env
 app/static/files/*.*
+venv/
+__pycache__/
+.vscode/
+*.log

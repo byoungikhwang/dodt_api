@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Add Content - Analysis{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Customer Data Analysis</h1>
+    <p>Upload your customer data (CSV format) to generate personas.</p>
+
+    <div class="card p-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title mb-3">Upload CSV File</h5>
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="csvFile" class="form-label">Select CSV File</label>
+                    <input class="form-control" type="file" id="csvFile" name="file" accept=".csv">
+                </div>
+                <button type="submit" class="btn btn-primary">Analyze Data</button>
+            </form>
+            <div id="upload-status" class="mt-3"></div>
+            <div id="analysis-results" class="mt-3">
+                <!-- Analysis results will be displayed here -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadForm = document.getElementById('upload-form');
+    const uploadStatus = document.getElementById('upload-status');
+    const analysisResults = document.getElementById('analysis-results');
+
+    uploadForm.addEventListener('submit', async function(event) {
+        event.preventDefault(); // Prevent default form submission
+
+        uploadStatus.innerHTML = '<div class="alert alert-info">Uploading and analyzing...</div>';
+        analysisResults.innerHTML = ''; // Clear previous results
+
+        const formData = new FormData(uploadForm);
+        
+        try {
+            const response = await fetch('/api/analysis/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Upload failed');
+            }
+
+            const result = await response.json();
+            uploadStatus.innerHTML = '<div class="alert alert-success">Analysis complete!</div>';
+            
+            // Display analysis results (e.g., as JSON or formatted text)
+            analysisResults.innerHTML = `
+                <h5>Analysis Result:</h5>
+                <pre>${JSON.stringify(result, null, 2)}</pre>
+            `;
+
+        } catch (error) {
+            uploadStatus.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            console.error('Analysis error:', error);
+        }
+    });
+});
+</script>
+{% endblock %}
