@@ -44,7 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/analysis/upload', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include' // Include cookies (like JWT access_token) with the request
             });
 
             if (!response.ok) {

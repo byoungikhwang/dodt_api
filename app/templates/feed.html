@@ -3,8 +3,341 @@
 {% block title %}Feed{% endblock %}
 
 {% block content %}
+<style>
+    .feed-container {
+        column-count: 2; /* 2열 레이아웃 */
+        column-gap: 15px; /* 열 간격 */
+    }
+    .feed-item {
+        margin-bottom: 15px; /* 아이템 간격 */
+        break-inside: avoid-column; /* 컬럼 나누기 방지 */
+        position: relative;
+        cursor: pointer;
+        overflow: hidden; /* 이미지 오버플로우 숨김 */
+        border-radius: 8px; /* 둥근 모서리 */
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* 그림자 */
+    }
+    .feed-item img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 8px;
+    }
+    .feed-item-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5); /* 반투명 오버레이 */
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 10px;
+        opacity: 0; /* 기본적으로 숨김 */
+        transition: opacity 0.3s ease; /* 부드러운 전환 효과 */
+    }
+    .feed-item:hover .feed-item-overlay {
+        opacity: 1; /* 호버 시 표시 */
+    }
+    .overlay-top, .overlay-bottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .overlay-top {
+        font-size: 0.8em;
+    }
+    .overlay-bottom {
+        font-size: 0.9em;
+    }
+    .like-button {
+        cursor: pointer;
+        color: white;
+        margin-right: 5px;
+    }
+    .like-button.liked {
+        color: red;
+    }
+    .menu-button {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.2em;
+        cursor: pointer;
+    }
+    .sort-options, .search-bar {
+        margin-bottom: 20px;
+    }
+    .spinner-border {
+        display: none;
+        margin: 20px auto;
+    }
+    .no-more-media {
+        text-align: center;
+        color: gray;
+        margin-top: 20px;
+        display: none;
+    }
+</style>
+
 <div class="container mt-4">
-    <h1>Feed Page</h1>
-    <p>This is the Feed page. Content will be displayed here.</p>
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-6">
+            <input type="text" id="search-input" class="form-control" placeholder="찾고 싶은 스타일을 검색해보세요. ex. 빈티지, 캐주얼 …etc">
+        </div>
+        <div class="col-md-6 text-end">
+            <button id="sort-latest" class="btn btn-sm btn-outline-secondary active">최신순</button>
+            <button id="sort-popular" class="btn btn-sm btn-outline-secondary ms-2">인기순</button>
+        </div>
+    </div>
+
+    <div id="feed-items-container" class="feed-container">
+        <!-- Feed items will be loaded here -->
+    </div>
+
+    <div id="loading-spinner" class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <p id="no-more-media" class="no-more-media">더 이상 미디어가 없습니다.</p>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const feedContainer = document.getElementById('feed-items-container');
+    const searchInput = document.getElementById('search-input');
+    const sortLatestBtn = document.getElementById('sort-latest');
+    const sortPopularBtn = document.getElementById('sort-popular');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const noMoreMediaMessage = document.getElementById('no-more-media');
+
+    let currentPage = 1;
+    let currentSort = 'latest';
+    let currentSearch = null;
+    let isLoading = false;
+    let hasMore = true;
+
+    async function fetchFeed(reset = false) {
+        if (isLoading || !hasMore) return;
+        isLoading = true;
+        loadingSpinner.style.display = 'block';
+        noMoreMediaMessage.style.display = 'none';
+
+        if (reset) {
+            feedContainer.innerHTML = '';
+            currentPage = 1;
+            hasMore = true;
+            window.scrollTo(0, 0); // Reset scroll position
+        }
+
+        const url = new URL('/api/media', window.location.origin);
+        url.searchParams.append('sort', currentSort);
+        url.searchParams.append('page', currentPage);
+        url.searchParams.append('limit', 20); // Fetch 20 items per page
+
+        if (currentSearch) {
+            url.searchParams.append('search', currentSearch);
+        }
+
+        try {
+            const response = await fetch(url.toString(), { credentials: 'include' });
+            if (!response.ok) {
+                if (response.status === 401) {
+                    // Redirect to login if unauthenticated and trying to do something requiring auth
+                    // For feed, we just show public content or an error message if auth was implied.
+                    // Since feed is public, we just log the error or show generic message.
+                    console.warn("Not authenticated to fetch full user info, showing public feed.");
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to fetch media');
+                }
+            }
+            const mediaItems = await response.json();
+
+            if (mediaItems.length === 0) {
+                hasMore = false;
+                if (currentPage === 1) { // No media at all
+                    feedContainer.innerHTML = '<p class="text-center text-muted mt-5">표시할 미디어가 없습니다.</p>';
+                }
+                noMoreMediaMessage.style.display = 'block';
+            } else {
+                mediaItems.forEach(item => {
+                    const itemElement = document.createElement('div');
+                    itemElement.className = 'feed-item';
+                    
+                    const isLiked = item.liked_by_user ? 'liked' : '';
+                    const likeCount = item.like_count !== undefined ? item.like_count : 0; // Ensure like_count exists
+
+                    itemElement.innerHTML = `
+                        <img src="${item.url}" alt="${item.title}">
+                        <div class="feed-item-overlay">
+                            <div class="overlay-top">
+                                <span>${item.creator_name}</span>
+                                <span>${new Date(item.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div class="overlay-bottom">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-heart like-button ${isLiked}" data-media-id="${item.id}"></i>
+                                    <span class="like-count">${likeCount}</span>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="menu-button" type="button" id="dropdownMenuButton${item.id}" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="dropdownMenuButton${item.id}">
+                                        <li><a class="dropdown-item copy-url-btn" href="#" data-url="${window.location.origin}/feed/${item.id}">URL 복사하기</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    feedContainer.appendChild(itemElement);
+                });
+                currentPage++;
+            }
+        } catch (error) {
+            console.error("Error fetching feed:", error);
+            feedContainer.innerHTML = '<p class="text-danger text-center mt-5">미디어를 불러오는 데 실패했습니다.</p>';
+        } finally {
+            isLoading = false;
+            loadingSpinner.style.display = 'none';
+            addEventListenersToNewItems();
+        }
+    }
+
+    async function toggleLike(mediaId, likeButton) {
+        try {
+            const response = await fetch(`/api/media/${mediaId}/like`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    alert('로그인 후 좋아요를 누를 수 있습니다.');
+                    window.location.href = '/login';
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to toggle like');
+            }
+
+            const data = await response.json();
+            const likeCountSpan = likeButton.nextElementSibling;
+            let currentLikeCount = parseInt(likeCountSpan.textContent);
+
+            if (data.status === 'liked') {
+                likeButton.classList.add('liked');
+                likeCountSpan.textContent = currentLikeCount + 1;
+            } else {
+                likeButton.classList.remove('liked');
+                likeCountSpan.textContent = currentLikeCount - 1;
+            }
+        } catch (error) {
+            console.error("Error toggling like:", error);
+        }
+    }
+
+    function addEventListenersToNewItems() {
+        document.querySelectorAll('.like-button').forEach(button => {
+            button.onclick = (event) => {
+                event.stopPropagation(); // Prevent triggering other click events on the item
+                const mediaId = button.dataset.mediaId;
+                toggleLike(mediaId, button);
+            };
+        });
+
+        document.querySelectorAll('.copy-url-btn').forEach(button => {
+            button.onclick = (event) => {
+                event.preventDefault(); // Prevent default link behavior
+                event.stopPropagation();
+                const urlToCopy = button.dataset.url;
+                navigator.clipboard.writeText(urlToCopy).then(() => {
+                    alert('URL이 클립보드에 복사되었습니다!');
+                }).catch(err => {
+                    console.error('URL 복사 실패:', err);
+                    alert('URL 복사에 실패했습니다.');
+                });
+            };
+        });
+    }
+
+    // Event Listeners for Sort Buttons
+    sortLatestBtn.addEventListener('click', () => {
+        if (currentSort !== 'latest') {
+            currentSort = 'latest';
+            sortLatestBtn.classList.add('active');
+            sortPopularBtn.classList.remove('active');
+            fetchFeed(true);
+        }
+    });
+
+    sortPopularBtn.addEventListener('click', () => {
+        if (currentSort !== 'popular') {
+            currentSort = 'popular';
+            sortPopularBtn.classList.add('active');
+            sortLatestBtn.classList.remove('active');
+            fetchFeed(true);
+        }
+    });
+
+    // Event Listener for Search Input
+    let searchTimeout;
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            const newSearch = searchInput.value.trim();
+            if (newSearch !== currentSearch) {
+                currentSearch = newSearch === '' ? null : newSearch;
+                fetchFeed(true);
+            }
+        }, 500); // Debounce search input
+    });
+
+    // Infinite Scroll
+    window.addEventListener('scroll', () => {
+        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500 && hasMore && !isLoading) {
+            fetchFeed();
+        }
+    });
+
+    <!--
+        임시 조치: 현재 데이터베이스 마이그레이션이 완료되지 않아 백엔드에서 에러가 발생합니다.
+        데이터베이스 마이그레이션 후 아래 fetchFeed(true) 호출을 활성화하고,
+        이 임시 비디오 코드를 제거하십시오.
+    -->
+    <div class="feed-item">
+        <video width="100%" height="auto" controls muted autoplay loop>
+            <source src="/static/videos/nas.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="feed-item-overlay">
+            <div class="overlay-top">
+                <span>임시 비디오 (Temp User)</span>
+                <span>2025-12-23</span>
+            </div>
+            <div class="overlay-bottom">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-heart like-button" data-media-id="0"></i>
+                    <span class="like-count">0</span>
+                </div>
+                <div class="dropdown">
+                    <button class="menu-button" type="button" id="dropdownMenuButtonTemp" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="dropdownMenuButtonTemp">
+                        <li><a class="dropdown-item copy-url-btn" href="#" data-url="/static/videos/nas.mp4">URL 복사하기 (임시)</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 초기 로드 임시 비활성화. DB 마이그레이션 후 활성화할 것 -->
+    <!-- fetchFeed(true); -->
+</script>
 {% endblock %}

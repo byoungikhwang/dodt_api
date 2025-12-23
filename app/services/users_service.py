@@ -83,3 +83,17 @@ class UserService:
             user = await self.user_repo.get_user_by_id(conn, user["id"]) # Re-fetch to get latest state
             
         return user
+
+    async def update_user_by_admin(self, conn: asyncpg.Connection, user_id: int, name: str, role: str, credits: int):
+        """
+        Updates user information (name, role, credits) by an admin.
+        """
+        updated_user = await self.user_repo.update_user(conn, user_id, name, role, credits)
+        return updated_user
+
+    async def delete_user_by_admin(self, conn: asyncpg.Connection, user_id: int) -> bool:
+        """
+        Deletes a user by their ID by an admin.
+        """
+        deleted_count = await self.user_repo.delete_user(conn, user_id)
+        return deleted_count > 0

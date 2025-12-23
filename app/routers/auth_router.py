@@ -71,3 +71,10 @@ async def login_google():
     return RedirectResponse(
         f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope=openid%20email%20profile&access_type=offline"
     )
+
+@router.get("/logout")
+async def logout(request: Request):
+    """Logs the user out by clearing the access_token cookie."""
+    response = RedirectResponse(url="/")
+    response.delete_cookie(key="access_token")
+    return response

@@ -9,9 +9,15 @@ import random
 
 import uuid
 import os
+import asyncpg # Add this import
 from app.config.settings import settings # settings 임포트 추가
+from app.repositories.users_repository import UserRepository # Import UserRepository
+from fastapi import Depends
 
 class AnalysisService:
+    def __init__(self, user_repo: UserRepository = Depends()): # Inject UserRepository
+        self.user_repo = user_repo
+        
     async def process_csv(self, file: UploadFile, user: dict, conn):
         # Generate unique filename
         file_ext = os.path.splitext(file.filename)[1]
@@ -108,3 +114,23 @@ class AnalysisService:
                 "suggestion": "Make it shorter" if sentiment == "Negative" else "Good to go"
             })
         return results
+
+    async def get_all_analysis_results(self, conn: asyncpg.Connection):
+        """
+        Fetches all analysis results and enriches them with user email.
+        """
+        raw_results = await conn.fetch("SELECT * FROM analysis_results ORDER BY created_at DESC")
+        enriched_results = []
+        for result in raw_results:
+            user_email = await self.user_repo.get_user_email_by_id(conn, result["user_id"])
+            enriched_result = dict(result)
+            enriched_result["user_email"] = user_email if user_email else "Unknown User"
+            enriched_results.append(enriched_result)
+        return enriched_results
+
+    async def get_all_style_logs(self, conn: asyncpg.Connection):
+        """
+        Fetches all style logs.
+        """
+        logs = await conn.fetch("SELECT * FROM style_logs ORDER BY created_at DESC")
+        return [dict(log) for log in logs]

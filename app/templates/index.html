@@ -4,43 +4,108 @@
 
 {% block content %}
 <style>
-    .video-container {
+    .media-feed-container {
+        display: flex;
+        flex-direction: column;
         width: 100%;
-        max-width: 400px; /* Example max-width, can be adjusted */
-        margin: auto;
-        aspect-ratio: 9 / 16;
+        margin: 0 auto;
+        padding: 0;
+    }
+    .media-item {
+        width: 100%;
+        aspect-ratio: 9 / 16; /* Standard short-form aspect ratio */
         overflow: hidden;
         position: relative;
+        background-color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0; /* No gap between items */
     }
-    #home-video {
+    .media-item-video, .media-item-image {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 </style>
-<div class="video-container">
-    <video id="home-video" src="/static/videos/nas.mp4" muted playsinline loop></video>
+<div id="media-feed" class="media-feed-container">
+    <!-- Media items will be dynamically loaded here -->
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener("DOMContentLoaded", function() {
-    const video = document.getElementById("home-video");
+    const mediaFeed = document.getElementById("media-feed");
+    let mediaItems = []; // Store references to media elements
 
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                video.play().catch(error => console.log("Autoplay was prevented: ", error));
-            } else {
-                video.pause();
+            if (entry.target.tagName === 'VIDEO') {
+                if (entry.isIntersecting) {
+                    entry.target.play().catch(error => console.warn("Autoplay was prevented:", error));
+                } else {
+                    entry.target.pause();
+                }
             }
         });
     }, {
-        threshold: 0.5 // Start playing when 50% of the video is visible
+        threshold: 0.75 // Start playing when 75% of the video is visible
     });
 
-    observer.observe(video);
+    async function fetchMedia() {
+        try {
+            const response = await fetch('/api/media', { credentials: 'include' });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to fetch media');
+            }
+            const mediaData = await response.json();
+            renderMedia(mediaData);
+        } catch (error) {
+            console.error("Error fetching media:", error);
+            mediaFeed.innerHTML = '<p class="text-danger">Failed to load media. Please try again later.</p>';
+        }
+    }
+
+    function renderMedia(mediaData) {
+        mediaFeed.innerHTML = ''; // Clear existing content
+        mediaItems = []; // Reset stored media elements
+
+        mediaData.forEach(item => {
+            const mediaItemDiv = document.createElement('div');
+            mediaItemDiv.className = 'media-item';
+
+            if (item.media_type === 'video') {
+                const video = document.createElement('video');
+                video.className = 'media-item-video';
+                video.src = item.url;
+                video.muted = true;
+                video.playsInline = true;
+                video.loop = true;
+                video.controls = false; // Disable controls for short-form, but can be toggled
+                mediaItemDiv.appendChild(video);
+                mediaItems.push(video);
+                observer.observe(video); // Observe for autoplay/pause
+            } else if (item.media_type === 'image') {
+                const img = document.createElement('img');
+                img.className = 'media-item-image';
+                img.src = item.url;
+                img.alt = item.title || 'Media Image';
+                mediaItemDiv.appendChild(img);
+            }
+            // Add media title/description overlay if needed
+            // const overlay = document.createElement('div');
+            // overlay.className = 'media-overlay';
+            // overlay.innerHTML = `<h3>${item.title}</h3><p>${item.description}</p>`;
+            // mediaItemDiv.appendChild(overlay);
+
+            mediaFeed.appendChild(mediaItemDiv);
+        });
+    }
+
+    // Load media on page load
+    fetchMedia();
 });
 </script>
 {% endblock %}

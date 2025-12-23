@@ -32,3 +32,19 @@ class UserRepository:
         else:
             query = "UPDATE users SET credits = $1 WHERE id = $2 RETURNING *"
             return await conn.fetchrow(query, new_credits, user_id)
+
+    async def update_user(self, conn: asyncpg.Connection, user_id: int, name: str, role: str, credits: int):
+        query = """
+            UPDATE users SET name = $1, role = $2, credits = $3 WHERE id = $4 RETURNING *
+        """
+        return await conn.fetchrow(query, name, role, credits, user_id)
+
+    async def delete_user(self, conn: asyncpg.Connection, user_id: int) -> int:
+        query = "DELETE FROM users WHERE id = $1"
+        status = await conn.execute(query, user_id)
+        return int(status.split()[-1]) # Return the number of deleted rows
+
+    async def get_user_email_by_id(self, conn: asyncpg.Connection, user_id: int) -> str | None:
+        query = "SELECT email FROM users WHERE id = $1"
+        record = await conn.fetchrow(query, user_id)
+        return record["email"] if record else None

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-from app.dependencies.auth import get_current_user, get_current_user_or_redirect
+from app.dependencies.auth import get_current_user_or_redirect
 from app.dependencies.db_connection import get_db_connection
 import asyncpg
 
@@ -9,6 +10,9 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/profile")
 async def user_profile(request: Request, user: dict = Depends(get_current_user_or_redirect), conn: asyncpg.Connection = Depends(get_db_connection)):
+    if isinstance(user, RedirectResponse):
+        return user
+
     # Fetch analysis history
     history = await conn.fetch("""
         SELECT * FROM analysis_results 

@@ -71,6 +71,31 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // Main Logo Hover Effect from base.html
+    const mainLogo = document.getElementById('main-logo');
+    if (mainLogo) {
+        const originalSrc = mainLogo.src;
+        const hoverSrc = '/static/images/image0_1.png?v=1.0'; // Assuming image0_1.png is the hover image
+
+        mainLogo.addEventListener('mouseover', function() {
+            mainLogo.style.transition = 'opacity 0.5s ease-in-out';
+            mainLogo.style.opacity = 0;
+            setTimeout(() => {
+                mainLogo.src = hoverSrc;
+                mainLogo.style.opacity = 1;
+            }, 500); // Match transition duration
+        });
+
+        mainLogo.addEventListener('mouseout', function() {
+            mainLogo.style.transition = 'opacity 0.5s ease-in-out';
+            mainLogo.style.opacity = 0;
+            setTimeout(() => {
+                mainLogo.src = originalSrc;
+                mainLogo.style.opacity = 1;
+            }, 500); // Match transition duration
+        });
+    }
 });
 
 function displayResults(data) {

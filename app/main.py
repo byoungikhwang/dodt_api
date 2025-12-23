@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config.settings import settings
 from app.middlewares.logging_middleware import LoggingMiddleware
 # [Modified] recommend_router 추가 임포트
-from app.routers import auth_router, index_router, analysis_router, admin_router, user_router, recommend_router, n8n_router, video_router
+from app.routers import auth_router, index_router, analysis_router, admin_router, user_router, recommend_router, n8n_router, media_router # Changed video_router to media_router
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,8 @@ app.include_router(user_router.router)
 app.include_router(recommend_router.router)
 # [Added] n8n 연동 라우터 등록
 app.include_router(n8n_router.router)
-# [Added] Video management 라우터 등록
-app.include_router(video_router.router)
+# [Added] Media management 라우터 등록 (Changed from Video management)
+app.include_router(media_router.router)
 
 @app.on_event("startup")
 async def startup_event():

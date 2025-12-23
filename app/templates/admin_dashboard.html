@@ -5,53 +5,300 @@
 {% block content %}
     <ul class="nav nav-tabs mb-3">
         <li class="nav-item">
-            <a class="nav-link active" aria-current="page" href="/admin/dashboard">User Management</a>
+            <a class="nav-link active" id="user-management-tab" data-bs-toggle="tab" href="#user-management-pane" role="tab" aria-controls="user-management-pane" aria-selected="true">User Management</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" href="/admin/videos">Video Management</a>
+            <a class="nav-link" id="video-management-tab" data-bs-toggle="tab" href="#video-management-pane" role="tab" aria-controls="video-management-pane" aria-selected="false">Video Management</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="user-activities-tab" data-bs-toggle="tab" href="#user-activities-pane" role="tab" aria-controls="user-activities-pane" aria-selected="false">User Activities</a>
         </li>
     </ul>
-    <h1>사용자 데이터</h1>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Custom ID</th>
-                <th>이름</th>
-                <th>이메일</th>
-                <th>Role</th>
-                <th>Credits</th>
-                <th>가입일</th>
-            </tr>
-        </thead>
-        <tbody id="user-data">
-            <!-- 사용자 데이터가 여기에 동적으로 추가됩니다. -->
-        </tbody>
-    </table>
+
+    <div class="tab-content" id="adminTabsContent">
+        <div class="tab-pane fade show active" id="user-management-pane" role="tabpanel" aria-labelledby="user-management-tab">
+            <h1>사용자 데이터</h1>
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Custom ID</th>
+                        <th>이름</th>
+                        <th>이메일</th>
+                        <th>Role</th>
+                        <th>Credits</th>
+                        <th>가입일</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="user-data">
+                    <!-- 사용자 데이터가 여기에 동적으로 추가됩니다. -->
+                </tbody>
+            </table>
+        </div>
+        <div class="tab-pane fade" id="video-management-pane" role="tabpanel" aria-labelledby="video-management-tab">
+            <!-- Video management content will be loaded here -->
+            <iframe src="/admin/videos" width="100%" height="800px" frameborder="0"></iframe>
+        </div>
+        <div class="tab-pane fade" id="user-activities-pane" role="tabpanel" aria-labelledby="user-activities-tab">
+            <h2>User Activities (Analysis Results & Style Logs)</h2>
+            <div id="analysis-results-content" class="mb-4">
+                <h3>Analysis History</h3>
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>User Email</th>
+                            <th>Filename</th>
+                            <th>File Link</th>
+                            <th>Results</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-analysis-history-data">
+                        <!-- Analysis history data will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="style-logs-content">
+                <h3>Style Logs</h3>
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Prompt Text</th>
+                            <th>Generated Style</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-style-logs-data">
+                        <!-- Style logs data will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit User Modal -->
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editUserForm">
+                        <input type="hidden" id="editUserId">
+                        <div class="mb-3">
+                            <label for="editUserEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="editUserEmail" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editUserName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="editUserName">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editUserRole" class="form-label">Role</label>
+                            <select class="form-select" id="editUserRole">
+                                <option value="MEMBER">MEMBER</option>
+                                <option value="ADMIN">ADMIN</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editUserCredits" class="form-label">Credits</label>
+                            <input type="number" class="form-control" id="editUserCredits">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="saveUserChanges">Save changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}
 
 {% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            fetch('/admin/users') // Changed to new API endpoint
-                .then(response => response.json())
-                .then(data => {
-                    const userData = document.getElementById('user-data');
-                    data.forEach(user => {
+            // Initialize Bootstrap Tabs
+            var triggerTabList = [].slice.call(document.querySelectorAll('#adminTabsContent a.nav-link'))
+            triggerTabList.forEach(function (triggerEl) {
+              var tabTrigger = new bootstrap.Tab(triggerEl)
+
+              triggerEl.addEventListener('click', function (event) {
+                event.preventDefault()
+                tabTrigger.show()
+              })
+            })
+
+            function fetchUsers() {
+                fetch('/admin/users', { credentials: 'include' })
+                    .then(response => response.json())
+                    .then(data => {
+                        const userData = document.getElementById('user-data');
+                        userData.innerHTML = ''; // Clear existing data
+                        data.forEach(user => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${user.id}</td>
+                                <td>${user.custom_id || 'N/A'}</td>
+                                <td>${user.name || 'N/A'}</td>
+                                <td>${user.email}</td>
+                                <td>${user.role}</td>
+                                <td>${user.credits}</td>
+                                <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary edit-user-btn" data-user-id="${user.id}"
+                                            data-bs-toggle="modal" data-bs-target="#editUserModal">Edit</button>
+                                    <button class="btn btn-sm btn-danger delete-user-btn" data-user-id="${user.id}">Delete</button>
+                                </td>
+                            `;
+                            userData.appendChild(row);
+                        });
+
+                        // Add event listeners for edit buttons
+                        document.querySelectorAll('.edit-user-btn').forEach(button => {
+                            button.addEventListener('click', function() {
+                                const userId = this.dataset.userId;
+                                const user = data.find(u => u.id == userId);
+                                if (user) {
+                                    document.getElementById('editUserId').value = user.id;
+                                    document.getElementById('editUserEmail').value = user.email;
+                                    document.getElementById('editUserName').value = user.name || '';
+                                    document.getElementById('editUserRole').value = user.role;
+                                    document.getElementById('editUserCredits').value = user.credits;
+                                }
+                            });
+                        });
+
+                        // Add event listeners for delete buttons
+                        document.querySelectorAll('.delete-user-btn').forEach(button => {
+                            button.addEventListener('click', async function() {
+                                const userId = this.dataset.userId;
+                                if (confirm(`Are you sure you want to delete user with ID: ${userId}?`)) {
+                                    try {
+                                        const response = await fetch(`/admin/users/${userId}`, {
+                                            method: 'DELETE',
+                                            headers: {
+                                                'Content-Type': 'application/json'
+                                            },
+                                            credentials: 'include'
+                                        });
+
+                                        if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.detail || 'Failed to delete user');
+                                        }
+                                        alert('User deleted successfully!');
+                                        fetchUsers(); // Refresh the table
+                                    } catch (error) {
+                                        alert(`Error deleting user: ${error.message}`);
+                                        console.error('Error deleting user:', error);
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(error => console.error('Error fetching user data:', error));
+            }
+
+            // Function to fetch and display analysis history
+            async function fetchAnalysisHistory() {
+                try {
+                    const response = await fetch('/admin/analysis-history', { credentials: 'include' });
+                    if (!response.ok) throw new Error('Failed to load analysis history');
+                    const history = await response.json();
+                    const analysisHistoryData = document.getElementById('admin-analysis-history-data');
+                    analysisHistoryData.innerHTML = '';
+                    history.forEach(item => {
                         const row = document.createElement('tr');
                         row.innerHTML = `
-                            <td>${user.id}</td>
-                            <td>${user.custom_id || 'N/A'}</td>
-                            <td>${user.name || 'N/A'}</td>
-                            <td>${user.email}</td>
-                            <td>${user.role}</td>
-                            <td>${user.credits}</td>
-                            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                            <td>${item.user_email || 'N/A'}</td>
+                            <td>${item.filename}</td>
+                            <td><a href="${item.filelink}" target="_blank">Link</a></td>
+                            <td><pre>${JSON.stringify(item.result, null, 2)}</pre></td>
+                            <td>${new Date(item.created_at).toLocaleString()}</td>
                         `;
-                        userData.appendChild(row);
+                        analysisHistoryData.appendChild(row);
                     });
-                })
-                .catch(error => console.error('Error fetching user data:', error));
+                } catch (error) {
+                    console.error('Error fetching analysis history:', error);
+                    document.getElementById('admin-analysis-history-data').innerHTML = '<tr><td colspan="5">Error loading analysis history.</td></tr>';
+                }
+            }
+
+            // Function to fetch and display style logs
+            async function fetchStyleLogs() {
+                try {
+                    const response = await fetch('/admin/style-logs', { credentials: 'include' });
+                    if (!response.ok) throw new Error('Failed to load style logs');
+                    const logs = await response.json();
+                    const styleLogsData = document.getElementById('admin-style-logs-data');
+                    styleLogsData.innerHTML = '';
+                    logs.forEach(log => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${log.user_id || 'N/A'}</td>
+                            <td>${log.prompt_text}</td>
+                            <td>${log.generated_style}</td>
+                            <td>${log.status}</td>
+                            <td>${new Date(log.created_at).toLocaleString()}</td>
+                        `;
+                        styleLogsData.appendChild(row);
+                    });
+                } catch (error) {
+                    console.error('Error fetching style logs:', error);
+                    document.getElementById('admin-style-logs-data').innerHTML = '<tr><td colspan="5">Error loading style logs.</td></tr>';
+                }
+            }
+
+            // Initial data fetch when a tab is shown
+            document.getElementById('user-management-tab').addEventListener('shown.bs.tab', function (event) {
+                fetchUsers();
+            })
+            document.getElementById('user-activities-tab').addEventListener('shown.bs.tab', function (event) {
+                fetchAnalysisHistory();
+                fetchStyleLogs();
+            })
+
+            // Initial fetch for the active tab (User Management)
+            fetchUsers();
+
+            // Save changes from modal
+            document.getElementById('saveUserChanges').addEventListener('click', async function() {
+                const userId = document.getElementById('editUserId').value;
+                const updatedUser = {
+                    name: document.getElementById('editUserName').value,
+                    role: document.getElementById('editUserRole').value,
+                    credits: parseInt(document.getElementById('editUserCredits').value)
+                };
+
+                try {
+                    const response = await fetch(`/admin/users/${userId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(updatedUser),
+                        credentials: 'include'
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to update user');
+                    }
+                    alert('User updated successfully!');
+                    const editUserModal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+                    editUserModal.hide();
+                    fetchUsers(); // Refresh the table
+                } catch (error) {
+                    alert(`Error updating user: ${error.message}`);
+                    console.error('Error updating user:', error);
+                }
+            });
         });
     </script>
 {% endblock %}

@@ -1,7 +1,22 @@
--- 1. 벡터 확장 기능 활성화 (RAG용)
+-- ===============================================
+-- 데이터베이스 생성 및 스키마 적용 가이드
+-- ===============================================
+-- 1. 데이터베이스 생성:
+--    이 스크립트는 'main_db'라는 데이터베이스 내에서 실행되어야 합니다.
+--    psql (또는 터미널)에서: CREATE DATABASE main_db;
+--
+-- 2. 스키마 적용:
+--    'main_db' 데이터베이스에 연결한 후, 이 스크립트를 실행합니다.
+--    psql -h db_postgresql -p 5432 -U admin -d main_db -f db/schema.sql
+-- ===============================================
+
+-- 확장 기능 활성화
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- 2. 사용자 테이블 (schema.sql)
+-- ===============================================
+-- 테이블: users
+-- 설명: 서비스 사용자 정보 저장
+-- ===============================================
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -14,7 +29,75 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. 분석 결과 테이블 (schema.sql)
+-- CRUD 예제: users
+-- C (Create):
+-- INSERT INTO users (email, name, picture, role) VALUES ('test@example.com', '테스트유저', 'picture_url', 'MEMBER');
+-- R (Read):
+-- SELECT * FROM users;
+-- SELECT * FROM users WHERE email = 'test@example.com';
+-- U (Update):
+-- UPDATE users SET name = '새이름' WHERE email = 'test@example.com';
+-- D (Delete):
+-- DELETE FROM users WHERE email = 'test@example.com';
+
+-- ===============================================
+-- 테이블: media
+-- 설명: 사용자가 생성/업로드하는 미디어(이미지, 비디오) 정보
+-- ===============================================
+CREATE TABLE IF NOT EXISTS media (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    media_type VARCHAR(50), -- 'image' or 'video'
+    url VARCHAR(512) NOT NULL, -- s3 또는 static 경로
+    hashtags TEXT[], -- 해시태그 목록 (PostgreSQL 배열)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CRUD 예제: media
+-- C (Create):
+-- INSERT INTO media (user_id, title, description, media_type, url, hashtags) VALUES (1, '첫번째 피드', '피드 설명입니다.', 'image', '/static/uploads/image.png', '{"#일상", "#데일리"}');
+-- R (Read):
+-- -- 모든 미디어 조회
+-- SELECT * FROM media ORDER BY created_at DESC;
+-- -- 특정 사용자의 미디어 조회
+-- SELECT * FROM media WHERE user_id = 1;
+-- -- 해시태그로 검색
+-- SELECT * FROM media WHERE '#일상' = ANY(hashtags);
+-- U (Update):
+-- UPDATE media SET description = '수정된 설명' WHERE id = 1;
+-- D (Delete):
+-- DELETE FROM media WHERE id = 1;
+
+-- ===============================================
+-- 테이블: media_likes
+-- 설명: 미디어에 대한 사용자의 '좋아요' 관계 저장
+-- ===============================================
+CREATE TABLE IF NOT EXISTS media_likes (
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    media_id INTEGER REFERENCES media(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, media_id)
+);
+
+-- CRUD 예제: media_likes
+-- C (Create - 좋아요 추가):
+-- INSERT INTO media_likes (user_id, media_id) VALUES (1, 1);
+-- R (Read):
+-- -- 특정 게시물의 좋아요 개수 세기
+-- SELECT count(*) FROM media_likes WHERE media_id = 1;
+-- -- 특정 사용자가 좋아요를 눌렀는지 확인
+-- SELECT EXISTS (SELECT 1 FROM media_likes WHERE user_id = 1 AND media_id = 1);
+-- -- 인기순(좋아요순)으로 미디어 정렬
+-- SELECT m.*, count(ml.media_id) as like_count FROM media m LEFT JOIN media_likes ml ON m.id = ml.media_id GROUP BY m.id ORDER BY like_count DESC;
+-- D (Delete - 좋아요 취소):
+-- DELETE FROM media_likes WHERE user_id = 1 AND media_id = 1;
+
+
+-- ===============================================
+-- 기타 테이블
+-- ===============================================
 CREATE TABLE IF NOT EXISTS analysis_results (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users (id),
@@ -24,7 +107,6 @@ CREATE TABLE IF NOT EXISTS analysis_results (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 4. 스타일 요청 로그 테이블 (n8n 연동용 추가)
 CREATE TABLE IF NOT EXISTS style_logs (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(50), -- users 테이블의 ID 또는 Email 저장
@@ -34,45 +116,5 @@ CREATE TABLE IF NOT EXISTS style_logs (
     status VARCHAR(20) DEFAULT 'pending'
 );
 
--- 5. 샘플 데이터 삽입 
-INSERT INTO users (name, email, age) VALUES ('홍길동', 'hong@example.com', 25);
-
--- 6.모든 데이터 가져오기: 
-SELECT * FROM users;
-
--- 7. 특정 유저 삭제
-DELETE FROM users WHERE email = 'user@example.com';
-
--- 8. 데이터 수정   
-UPDATE users SET name = '새이름' WHERE email = '';
-
-
---1. 컬럼 추가 (ADD) 기존 테이블에 새로운 정보를 담을 칸을 추가합니다.
-    #예제 (전화번호 컬럼 추가): 
-ALTER TABLE users ADD phone VARCHAR(20);
-
---2. 컬럼 삭제 (DROP)더 이상 필요 없는 컬럼을 제거합니다.
-    #예제 (나이 컬럼 삭제): 
-ALTER TABLE users DROP COLUMN age;
-
---3. 컬럼 수정 (MODIFY / ALTER) 컬럼의 데이터 타입(글자 수 등)이나 제약 조건을 변경합니다. 
-    # 예제 (이름 글자 수를 100자로 변경): 
-ALTER TABLE users MODIFY name VARCHAR(100);
-
---4. 컬럼 이름 변경 (RENAME) 기존 컬럼의 이름을 바꿉니다.
-# 예제 (email을 user_email로 변경): 
-ALTER TABLE users RENAME COLUMN email TO user_email;
-
---5. 테이블 이름 변경 (RENAME TO) 테이블 자체의 이름을 바꿉니다.
-#예제 (users를 members로 변경): 
-ALTER TABLE users RENAME TO members;
-
--- 6. 비디오 테이블 (관리자 업로드용)
-CREATE TABLE IF NOT EXISTS videos (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    filename VARCHAR(255) NOT NULL,
-    filepath VARCHAR(512) NOT NULL,
-    uploaded_by INTEGER REFERENCES users(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+-- 스키마 적용 후, 테이블이 올바르게 생성되었는지 확인하는 쿼리
+SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;

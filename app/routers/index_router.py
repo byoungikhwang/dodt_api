@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Request, Depends
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
-from app.dependencies.auth import get_optional_user, get_current_user_or_redirect # Import get_current_user_or_redirect
+from app.dependencies.auth import get_optional_user, get_current_user_or_redirect
+from app.dependencies.db_connection import get_db_connection # Add this import
+from app.services.media_service import MediaService
+import asyncpg
 from typing import Optional
 
 router = APIRouter()
@@ -26,3 +29,15 @@ async def generate_type2_page(request: Request, user: dict = Depends(get_current
 @router.get("/dashboard")
 async def dashboard(request: Request, user: Optional[dict] = Depends(get_optional_user)):
     return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+
+@router.get("/api/media")
+async def get_media_feed(
+    user: Optional[dict] = Depends(get_optional_user),
+    media_service: MediaService = Depends(), # Changed from VideoService
+    conn: asyncpg.Connection = Depends(get_db_connection)
+):
+    """
+    Returns a list of all media (videos and images) for the main feed.
+    """
+    media_items = await media_service.get_all_media(conn)
+    return media_items
