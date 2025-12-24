@@ -7,6 +7,7 @@ from app.services.users_service import UserService
 from app.auth.jwt_handler import create_access_token
 from app.config.settings import settings
 import asyncpg
+import secrets
 import httpx
 
 router = APIRouter()
@@ -23,8 +24,12 @@ async def login(request: Request):
     """Serves the login page."""
     return templates.TemplateResponse("login.html", {"request": request})
 
-@router.get("/rest/oauth2-credential/callback")
-async def google_callback(code: str, request: Request, user_service: UserService = Depends(), conn: asyncpg.Connection = Depends(get_db_connection)):
+@router.get("/auth/callback")
+async def google_callback(request: Request, code: str, state: str, user_service: UserService = Depends(), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Verify state to prevent CSRF
+    if state != request.session.pop("state", None):
+        raise HTTPException(status_code=403, detail="Invalid state token")
+    
     token_url = "https://oauth2.googleapis.com/token"
     data = {
         "code": code,
@@ -67,9 +72,12 @@ async def google_callback(code: str, request: Request, user_service: UserService
         return response
 
 @router.get("/login/google")
-async def login_google():
+async def login_google(request: Request):
+    # Generate and store state for CSRF protection
+    state = secrets.token_urlsafe(32)
+    request.session["state"] = state
     return RedirectResponse(
-        f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope=openid%20email%20profile&access_type=offline"
+        f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope=openid%20email%20profile&access_type=offline&state={state}"
     )
 
 @router.get("/logout")

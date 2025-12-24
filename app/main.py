@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.config.settings import settings
 from app.middlewares.logging_middleware import LoggingMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 # [Modified] recommend_router 추가 임포트
 from app.routers import auth_router, index_router, analysis_router, admin_router, user_router, recommend_router, n8n_router, media_router # Changed video_router to media_router
 
@@ -13,6 +14,7 @@ app = FastAPI(title=settings.PROJECT_NAME, version=settings.PROJECT_VERSION)
 
 # Middleware
 app.add_middleware(LoggingMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY)
 
 # Static Files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -42,6 +44,7 @@ async def startup_event():
         logger.info("Database connection pool created successfully.")
     except Exception as e:
         logger.error(f"Failed to create database connection pool: {e}")
+        raise e # Re-raise the exception to stop the application startup
 
 
 @app.on_event("shutdown")

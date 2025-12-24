@@ -1,3 +1,4 @@
+import logging
 import random
 import string
 from datetime import date, datetime, timedelta
@@ -5,6 +6,9 @@ from datetime import date, datetime, timedelta
 from app.repositories.users_repository import UserRepository
 from fastapi import Depends, HTTPException, status
 import asyncpg
+
+logger = logging.getLogger(__name__)
+
 
 class UserService:
     def __init__(self, user_repo: UserRepository = Depends()):
@@ -49,13 +53,13 @@ class UserService:
 
 
     async def get_or_create_user(self, conn: asyncpg.Connection, email: str, name: str, picture: str):
-        user = await self.user_repo.get_user_by_email(conn, email)
-        if not user:
-            # Ensure custom_id uniqueness (minimal check for now)
+        try:
+            # First, attempt to create the user. This is the "optimistic" or "ask for forgiveness" approach.
             custom_id_exists = True
             generated_custom_id = ""
             while custom_id_exists:
                 generated_custom_id = self._generate_custom_id()
+                # Check if custom_id already exists
                 existing_user_with_id = await self.user_repo.get_user_by_custom_id(conn, generated_custom_id)
                 if not existing_user_with_id:
                     custom_id_exists = False
@@ -66,23 +70,30 @@ class UserService:
                 conn, email, generated_custom_id, name, picture, role="MEMBER",
                 credits=initial_credits, last_credit_grant_date=today
             )
-        else:
-            # Check and grant daily credit for existing user
-            # Convert last_credit_grant_date from DB (datetime) to date object for comparison
-            # Handle potential None for last_credit_grant_date if it was previously null or not set
-            last_grant_date_db = user["last_credit_grant_date"]
-            if isinstance(last_grant_date_db, datetime):
-                last_grant_date_obj = last_grant_date_db.date()
-            elif isinstance(last_grant_date_db, date):
-                last_grant_date_obj = last_grant_date_db
-            else: # Assume it's None or invalid, treat as if never granted to trigger a grant
-                last_grant_date_obj = date(1970, 1, 1) # A very old date
-
-            updated_credits = await self._check_and_grant_daily_credit(conn, user["id"], user["credits"], last_grant_date_obj)
-            # Re-fetch or update user dict to reflect new credits
-            user = await self.user_repo.get_user_by_id(conn, user["id"]) # Re-fetch to get latest state
+            # If creation is successful, the new user is returned.
+            return user
+        except asyncpg.UniqueViolationError:
+            # If a UniqueViolationError occurs, it means the user was likely created by a concurrent request.
+            logger.info(f"Race condition handled: User with email {email} already exists. Fetching existing user.")
             
-        return user
+            # The transaction is automatically rolled back by asyncpg driver in case of such error.
+            # We can now safely fetch the existing user in a new transaction context provided by Depends.
+            user = await self.user_repo.get_user_by_email(conn, email)
+            if not user:
+                # This case is highly unlikely but handled for safety.
+                raise HTTPException(status_code=500, detail="Failed to retrieve user after race condition.")
+
+            # Proceed with the daily credit check for the existing user.
+            last_grant_date = user["last_credit_grant_date"]
+            if not isinstance(last_grant_date, date):
+                # If it's None or some other unexpected type, treat as a grant-requiring date.
+                last_grant_date = date(1970, 1, 1)
+
+            await self._check_and_grant_daily_credit(conn, user["id"], user["credits"], last_grant_date)
+            
+            # Re-fetch the user to get the most up-to-date credit information.
+            user = await self.user_repo.get_user_by_id(conn, user["id"])
+            return user
 
     async def update_user_by_admin(self, conn: asyncpg.Connection, user_id: int, name: str, role: str, credits: int):
         """

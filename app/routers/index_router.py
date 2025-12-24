@@ -39,5 +39,13 @@ async def get_media_feed(
     """
     Returns a list of all media (videos and images) for the main feed.
     """
-    media_items = await media_service.get_all_media(conn)
+    current_user_id = int(user["sub"]) if user else None
+    media_items = await media_service.get_feed_media(
+        conn=conn,
+        sort='popular',
+        search=None,
+        limit=6,
+        offset=0,
+        current_user_id=current_user_id
+    )
     return media_items

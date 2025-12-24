@@ -31,8 +31,8 @@ async def get_feed_media(
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     offset = (page - 1) * limit
-    user_id = int(user["sub"]) if user else None
-    media_items = await media_service.get_feed_media(conn, sort, search, limit, offset, user_id)
+    current_user_id = int(user["sub"]) if user else None
+    media_items = await media_service.get_feed_media(conn, sort, search, limit, offset, current_user_id=current_user_id)
     return media_items
 
 @router.post("/{media_id}/like", status_code=200)

@@ -4,108 +4,124 @@
 
 {% block content %}
 <style>
-    .media-feed-container {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        margin: 0 auto;
-        padding: 0;
-    }
-    .media-item {
-        width: 100%;
-        aspect-ratio: 9 / 16; /* Standard short-form aspect ratio */
-        overflow: hidden;
+    .main-video-container {
         position: relative;
-        background-color: #000;
+        width: 100%;
+        /* 9:16 aspect ratio: height = width * (16 / 9) */
+        /* To make it responsive and fit height of viewport */
+        padding-top: calc(100% * (16 / 9)); /* Aspect ratio 9:16 based on width */
+        max-height: 100vh; /* Limit height to viewport height */
+        overflow: hidden;
+        background-color: black;
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-bottom: 0; /* No gap between items */
     }
-    .media-item-video, .media-item-image {
+
+    .main-video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover; /* Cover the container while maintaining aspect ratio */
+        object-position: center;
+    }
+
+    .feed-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* 2 columns */
+        gap: 10px; /* Gap between grid items */
+        padding: 10px;
+        max-width: 800px; /* Max width for the grid */
+        margin: 20px auto;
+    }
+
+    .feed-preview-item {
+        position: relative;
+        width: 100%;
+        padding-top: 100%; /* 1:1 aspect ratio for preview images */
+        overflow: hidden;
+        border-radius: 8px;
+        background-color: #f0f0f0;
+        cursor: pointer;
+    }
+
+    .feed-preview-item img {
+        position: absolute;
+        top: 0;
+        left: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
+
+    .feed-preview-overlay {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+        color: white;
+        padding: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        font-size: 0.8em;
+    }
+
+    .feed-preview-item:hover .feed-preview-overlay {
+        opacity: 1;
+    }
+
+    .overlay-info span {
+        display: block;
+    }
+
+    .overlay-likes {
+        display: flex;
+        align-items: center;
+    }
+
+    .overlay-likes i {
+        margin-right: 4px;
+        color: white; /* Heart icon color */
+    }
 </style>
-<div id="media-feed" class="media-feed-container">
-    <!-- Media items will be dynamically loaded here -->
+
+<div class="main-video-container">
+    <video class="main-video" autoplay muted loop playsinline>
+        <source src="/static/videos/nas.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+</div>
+
+<div class="container mt-4">
+    <h2 class="text-center mb-3">Feed 미리보기 (인기순)</h2>
+    <div class="feed-preview-grid">
+        {% for i in range(6) %}
+        <div class="feed-preview-item">
+            <!-- Placeholder image - replace with actual feed images from backend later -->
+            <img src="https://picsum.photos/id/{{ 1025 + i }}/300/300" alt="Feed Item Placeholder">
+            <div class="feed-preview-overlay">
+                <div class="overlay-info">
+                    <span>CreatorID{{ i+1 }}</span>
+                    <span>2025-12-{{ 24-i }}</span>
+                </div>
+                <div class="overlay-likes">
+                    <i class="fas fa-heart"></i> <!-- Font Awesome heart icon -->
+                    <span>{{ 100 + i*10 }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    const mediaFeed = document.getElementById("media-feed");
-    let mediaItems = []; // Store references to media elements
-
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.target.tagName === 'VIDEO') {
-                if (entry.isIntersecting) {
-                    entry.target.play().catch(error => console.warn("Autoplay was prevented:", error));
-                } else {
-                    entry.target.pause();
-                }
-            }
-        });
-    }, {
-        threshold: 0.75 // Start playing when 75% of the video is visible
-    });
-
-    async function fetchMedia() {
-        try {
-            const response = await fetch('/api/media', { credentials: 'include' });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to fetch media');
-            }
-            const mediaData = await response.json();
-            renderMedia(mediaData);
-        } catch (error) {
-            console.error("Error fetching media:", error);
-            mediaFeed.innerHTML = '<p class="text-danger">Failed to load media. Please try again later.</p>';
-        }
-    }
-
-    function renderMedia(mediaData) {
-        mediaFeed.innerHTML = ''; // Clear existing content
-        mediaItems = []; // Reset stored media elements
-
-        mediaData.forEach(item => {
-            const mediaItemDiv = document.createElement('div');
-            mediaItemDiv.className = 'media-item';
-
-            if (item.media_type === 'video') {
-                const video = document.createElement('video');
-                video.className = 'media-item-video';
-                video.src = item.url;
-                video.muted = true;
-                video.playsInline = true;
-                video.loop = true;
-                video.controls = false; // Disable controls for short-form, but can be toggled
-                mediaItemDiv.appendChild(video);
-                mediaItems.push(video);
-                observer.observe(video); // Observe for autoplay/pause
-            } else if (item.media_type === 'image') {
-                const img = document.createElement('img');
-                img.className = 'media-item-image';
-                img.src = item.url;
-                img.alt = item.title || 'Media Image';
-                mediaItemDiv.appendChild(img);
-            }
-            // Add media title/description overlay if needed
-            // const overlay = document.createElement('div');
-            // overlay.className = 'media-overlay';
-            // overlay.innerHTML = `<h3>${item.title}</h3><p>${item.description}</p>`;
-            // mediaItemDiv.appendChild(overlay);
-
-            mediaFeed.appendChild(mediaItemDiv);
-        });
-    }
-
-    // Load media on page load
-    fetchMedia();
-});
-</script>
+<!-- Font Awesome for icons -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/js/all.min.js"></script>
 {% endblock %}

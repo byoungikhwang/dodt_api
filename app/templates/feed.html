@@ -306,38 +306,8 @@
         }
     });
 
-    <!--
-        임시 조치: 현재 데이터베이스 마이그레이션이 완료되지 않아 백엔드에서 에러가 발생합니다.
-        데이터베이스 마이그레이션 후 아래 fetchFeed(true) 호출을 활성화하고,
-        이 임시 비디오 코드를 제거하십시오.
-    -->
-    <div class="feed-item">
-        <video width="100%" height="auto" controls muted autoplay loop>
-            <source src="/static/videos/nas.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <div class="feed-item-overlay">
-            <div class="overlay-top">
-                <span>임시 비디오 (Temp User)</span>
-                <span>2025-12-23</span>
-            </div>
-            <div class="overlay-bottom">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-heart like-button" data-media-id="0"></i>
-                    <span class="like-count">0</span>
-                </div>
-                <div class="dropdown">
-                    <button class="menu-button" type="button" id="dropdownMenuButtonTemp" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="dropdownMenuButtonTemp">
-                        <li><a class="dropdown-item copy-url-btn" href="#" data-url="/static/videos/nas.mp4">URL 복사하기 (임시)</a></li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
+
     <!-- 초기 로드 임시 비활성화. DB 마이그레이션 후 활성화할 것 -->
-    <!-- fetchFeed(true); -->
+    fetchFeed(true);
 </script>
 {% endblock %}
