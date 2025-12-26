@@ -12,3 +12,4 @@ scikit-learn
 Jinja2
 pytest
 python-multipart
+itsdangerous

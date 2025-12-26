@@ -6,25 +6,32 @@ from fastapi import UploadFile
 import io
 import json
 import random
-
 import uuid
 import os
-import asyncpg # Add this import
-from app.config.settings import settings # settings 임포트 추가
-from app.repositories.users_repository import UserRepository # Import UserRepository
-from fastapi import Depends
+from typing import List
+
+from app.config.settings import settings
+from app.repositories.users_repository import UserRepository
+from app.repositories.analysis_repository import AnalysisRepository
+from app.repositories.style_log_repository import StyleLogRepository
 
 class AnalysisService:
-    def __init__(self, user_repo: UserRepository = Depends()): # Inject UserRepository
+    def __init__(
+        self, 
+        user_repo: UserRepository, 
+        analysis_repo: AnalysisRepository,
+        style_log_repo: StyleLogRepository
+    ):
         self.user_repo = user_repo
+        self.analysis_repo = analysis_repo
+        self.style_log_repo = style_log_repo
         
-    async def process_csv(self, file: UploadFile, user: dict, conn):
+    async def process_csv(self, file: UploadFile, user: dict):
         # Generate unique filename
         file_ext = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        file_path = os.path.join(settings.UPLOAD_DIRECTORY, unique_filename) # 설정 사용
+        file_path = os.path.join(settings.UPLOAD_DIRECTORY, unique_filename)
 
-        
         # Save file
         content = await file.read()
         with open(file_path, "wb") as f:
@@ -33,50 +40,41 @@ class AnalysisService:
         df = pd.read_csv(io.BytesIO(content))
         
         # Basic Preprocessing
-        # 1. Handle missing values (simple fill with 0 or mode)
         df = df.fillna(0)
-        
-        # 2. Encode categorical variables
         label_encoders = {}
         for column in df.select_dtypes(include=['object']).columns:
-            if column != 'user_id': # Skip ID
+            if column != 'user_id':
                 le = LabelEncoder()
                 df[column] = le.fit_transform(df[column].astype(str))
                 label_encoders[column] = le
         
-        # 3. Select features for clustering (exclude user_id)
         features = df.select_dtypes(include=['number'])
         if 'user_id' in features.columns:
             features = features.drop('user_id', axis=1)
             
-        # 4. Scale features
         scaler = StandardScaler()
         scaled_features = scaler.fit_transform(features)
         
-        # 5. Clustering (Find best K)
+        # Clustering
         best_k = 3
         best_score = -1
-        
-        # Limit K search for speed
         for k in range(3, 8):
             if len(df) < k: break
-            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
             labels = kmeans.fit_predict(scaled_features)
             score = silhouette_score(scaled_features, labels)
             if score > best_score:
                 best_score = score
                 best_k = k
         
-        kmeans = KMeans(n_clusters=best_k, random_state=42)
+        kmeans = KMeans(n_clusters=best_k, random_state=42, n_init=10)
         df['cluster'] = kmeans.fit_predict(scaled_features)
         
-        # 6. Generate Personas (Mocking LLM)
+        # Generate Personas
         personas = []
         for i in range(best_k):
             cluster_data = df[df['cluster'] == i]
             size = len(cluster_data)
-            
-            # Mock generation based on cluster stats
             personas.append({
                 "id": i,
                 "name": f"Persona Type {i+1}",
@@ -93,12 +91,14 @@ class AnalysisService:
             "total_users": len(df)
         }
 
-        # Save to DB
+        # Save to DB via repository
         if user and "sub" in user:
-            await conn.execute("""
-                INSERT INTO analysis_results (user_id, filename, filelink, result)
-                VALUES ($1, $2, $3, $4)
-            """, int(user["sub"]), file.filename, f"/static/files/{unique_filename}", json.dumps(result))
+            await self.analysis_repo.create_analysis_result(
+                user_id=int(user["sub"]),
+                filename=file.filename,
+                filelink=f"/static/files/{unique_filename}",
+                result=result
+            )
             
         return result
 
@@ -115,22 +115,22 @@ class AnalysisService:
             })
         return results
 
-    async def get_all_analysis_results(self, conn: asyncpg.Connection):
+    async def get_all_analysis_results(self) -> List[dict]:
         """
         Fetches all analysis results and enriches them with user email.
         """
-        raw_results = await conn.fetch("SELECT * FROM analysis_results ORDER BY created_at DESC")
+        raw_results = await self.analysis_repo.get_all_analysis_results()
         enriched_results = []
         for result in raw_results:
-            user_email = await self.user_repo.get_user_email_by_id(conn, result["user_id"])
+            user_email = await self.user_repo.get_user_email_by_id(result["user_id"])
             enriched_result = dict(result)
             enriched_result["user_email"] = user_email if user_email else "Unknown User"
             enriched_results.append(enriched_result)
         return enriched_results
 
-    async def get_all_style_logs(self, conn: asyncpg.Connection):
+    async def get_all_style_logs(self) -> List[dict]:
         """
         Fetches all style logs.
         """
-        logs = await conn.fetch("SELECT * FROM style_logs ORDER BY created_at DESC")
+        logs = await self.style_log_repo.get_all_style_logs()
         return [dict(log) for log in logs]

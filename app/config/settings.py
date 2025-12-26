@@ -38,7 +38,8 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     GOOGLE_GEMINI_MODEL_NAME: str = "gemini-pro"
 
-    @computed_field @property
+    @computed_field
+    @property
     def DATABASE_URL(self) -> str:
         # [수정 전] self.POSTGRES_HOST 사용 (변수명 변경으로 인해 에러 발생 가능성)
         # return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD} @{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

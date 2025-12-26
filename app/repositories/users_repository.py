@@ -2,7 +2,7 @@
 
 import asyncpg
 from datetime import date
-from typing import Optional
+from typing import Optional, List
 
 class UserRepository:
     def __init__(self, conn: asyncpg.Connection):
@@ -57,9 +57,23 @@ class UserRepository:
     async def delete_user(self, user_id: int) -> int:
         query = "DELETE FROM users WHERE id = $1"
         status = await self.conn.execute(query, user_id)
-        return int(status.split()[-1])
+        # Safely parse the status string like 'DELETE 1'
+        try:
+            return int(status.split()[-1])
+        except (ValueError, IndexError):
+            return 0
 
     async def get_user_email_by_id(self, user_id: int) -> Optional[str]:
         # fetchval을 사용하여 단일 값만 깔끔하게 가져옵니다.
         query = "SELECT email FROM users WHERE id = $1"
         return await self.conn.fetchval(query, user_id)
+
+    async def get_users_count(self) -> int:
+        """ [신규] 전체 사용자 수를 조회합니다. """
+        query = "SELECT COUNT(*) FROM users"
+        return await self.conn.fetchval(query)
+
+    async def get_all_users(self, offset: int = 0, limit: int = 50) -> List[asyncpg.Record]:
+        """ [신규] 모든 사용자를 페이지네이션하여 조회합니다. """
+        query = "SELECT * FROM users ORDER BY id DESC LIMIT $1 OFFSET $2"
+        return await self.conn.fetch(query, limit, offset)
