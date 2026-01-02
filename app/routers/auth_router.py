@@ -26,7 +26,12 @@
 #     return templates.TemplateResponse("login.html", {"request": request})
 
 # @router.get("/auth/callback")
-# async def google_callback(request: Request, code: str, state: str, user_service: UserService = Depends(), conn: asyncpg.Connection = Depends(get_db_connection)):
+# async def google_callback(
+    request: Request, 
+    code: str, 
+    state: str, 
+    user_service: UserService = Depends(get_user_service)
+):
 #     # Verify state to prevent CSRF
 #     if state != request.session.pop("state", None):
 #         raise HTTPException(status_code=403, detail="Invalid state token")
@@ -55,7 +60,7 @@
 #         name = user_info.get("name")
 #         picture = user_info.get("picture")
         
-#         user = await user_service.get_or_create_user(conn, email, name, picture)
+#         user = await user_service.get_or_create_user(email, name, picture)
         
 #         # Create JWT
 #         jwt_token = create_access_token({
@@ -69,7 +74,7 @@
 #         # Redirect to dashboard with token (in a real app, maybe set cookie or redirect to a frontend that handles the token)
 #         # Or better, set it as a cookie.
 #         response = RedirectResponse(url="/dashboard")
-#         response.set_cookie(key="access_token", value=f"Bearer {jwt_token}", httponly=True)
+#         response.set_cookie(key="access_token", value=f"Bearer {jwt_token}", httponly=True, secure=True, samesite='lax')
 #         return response
 
 # @router.get("/login/google")
@@ -112,7 +117,12 @@ async def login(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @router.get("/auth/callback")
-# [수정 전] async def google_callback(request: Request, code: str, state: str, user_service: UserService = Depends(), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def google_callback(
+    request: Request, 
+    code: str, 
+    state: str, 
+    user_service: UserService = Depends(get_user_service)
+):
 # [수정 후] 올바른 서비스 의존성 주입 사용, conn 제거
 async def google_callback(
     request: Request, 
@@ -150,7 +160,7 @@ async def google_callback(
         name = user_info.get("name")
         picture = user_info.get("picture")
         
-        # [수정 전] user = await user_service.get_or_create_user(conn, email, name, picture)
+        # [수정 전] user = await user_service.get_or_create_user(email, name, picture)
         # [수정 후] conn 없이 서비스 메소드 호출
         user = await user_service.get_or_create_user(email, name, picture)
         
@@ -163,7 +173,7 @@ async def google_callback(
         })
         
         response = RedirectResponse(url="/dashboard")
-        response.set_cookie(key="access_token", value=f"Bearer {jwt_token}", httponly=True)
+        response.set_cookie(key="access_token", value=f"Bearer {jwt_token}", httponly=True, secure=True, samesite='lax')
         return response
 
 @router.get("/login/google")

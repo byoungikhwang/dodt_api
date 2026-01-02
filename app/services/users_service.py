@@ -156,74 +156,54 @@ class UserService:
 
     async def deduct_credit(self, user_id: int):
         """
-        Deducts one credit from the user's balance.
+        Deducts one credit from the user's balance within a transaction.
         Raises HTTPException if user has no credits.
         """
-        # [수정 전] conn 전달
-        # user = await self.user_repo.get_user_by_id(conn, user_id)
-        # [수정 후] conn 제거
-        user = await self.user_repo.get_user_by_id(user_id)
-        if not user or user["credits"] <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                detail="Not enough credits. Please try again tomorrow or purchase more."
-            )
-        
-        updated_credits = user["credits"] - 1
-        # [수정 전] conn 전달
-        # await self.user_repo.update_user_credits(conn, user_id, updated_credits)
-        # [수정 후] conn 제거
-        await self.user_repo.update_user_credits(user_id, updated_credits)
-        return updated_credits
+        async with self.user_repo.conn.transaction():
+            user = await self.user_repo.get_user_by_id_for_update(user_id)
+            if not user or user["credits"] <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail="Not enough credits. Please try again tomorrow or purchase more."
+                )
+            
+            updated_credits = user["credits"] - 1
+            await self.user_repo.update_user_credits(user_id, updated_credits)
+            return updated_credits
 
 
     async def get_or_create_user(self, email: str, name: Optional[str], picture: Optional[str]) -> asyncpg.Record:
-        try:
-            custom_id_exists = True
-            generated_custom_id = ""
-            while custom_id_exists:
-                generated_custom_id = self._generate_custom_id()
-                # [수정 전] conn 전달
-                # existing_user_with_id = await self.user_repo.get_user_by_custom_id(conn, generated_custom_id)
-                # [수정 후] conn 제거
-                existing_user_with_id = await self.user_repo.get_user_by_custom_id(generated_custom_id)
-                if not existing_user_with_id:
-                    custom_id_exists = False
-
-            initial_credits = 1
-            today = date.today()
-            # [수정 전] conn 전달
-            # user = await self.user_repo.create_user(
-            #     conn, email, generated_custom_id, name, picture, role="MEMBER",
-            #     credits=initial_credits, last_credit_grant_date=today
-            # )
-            # [수정 후] conn 제거
-            user = await self.user_repo.create_user(
-                email, generated_custom_id, name, picture, role="MEMBER",
-                credits=initial_credits, last_credit_grant_date=today
-            )
-            return user
-        except asyncpg.UniqueViolationError:
-            logger.info(f"Race condition handled: User with email {email} already exists. Fetching existing user.")
-            
-            # [수정 전] conn 전달
-            # user = await self.user_repo.get_user_by_email(conn, email)
-            # [수정 후] conn 제거
+        async with self.user_repo.conn.transaction():
             user = await self.user_repo.get_user_by_email(email)
-            if not user:
-                raise HTTPException(status_code=500, detail="Failed to retrieve user after race condition.")
 
-            last_grant_date_val = user["last_credit_grant_date"]
-            if not isinstance(last_grant_date_val, date):
-                last_grant_date_val = date(1970, 1, 1)
+            if user:
+                # User exists, check for daily credit grant
+                last_grant_date = user["last_credit_grant_date"]
+                if not isinstance(last_grant_date, date):
+                    last_grant_date = date(1970, 1, 1)
 
-            await self._check_and_grant_daily_credit(user["id"], user["credits"], last_grant_date_val)
-            
-            # [수정 전] conn 전달
-            # user = await self.user_repo.get_user_by_id(conn, user["id"])
-            # [수정 후] conn 제거
-            user = await self.user_repo.get_user_by_id(user["id"])
-            return user
+                # This will update credits if a new day has passed
+                await self._check_and_grant_daily_credit(user["id"], user["credits"], last_grant_date)
+                
+                # Re-fetch user to get the updated credit info
+                return await self.user_repo.get_user_by_id(user["id"])
+            else:
+                # User does not exist, create a new one
+                custom_id_exists = True
+                generated_custom_id = ""
+                while custom_id_exists:
+                    generated_custom_id = self._generate_custom_id()
+                    existing_user_with_id = await self.user_repo.get_user_by_custom_id(generated_custom_id)
+                    if not existing_user_with_id:
+                        custom_id_exists = False
+
+                initial_credits = 1
+                today = date.today()
+                new_user = await self.user_repo.create_user(
+                    email, generated_custom_id, name, picture, role="MEMBER",
+                    credits=initial_credits, last_credit_grant_date=today
+                )
+                return new_user
 
     async def update_user_by_admin(self, user_id: int, name: str, role: str, credits: int) -> Optional[asyncpg.Record]:
         """

@@ -19,6 +19,10 @@ class UserRepository:
         query = "SELECT * FROM users WHERE id = $1"
         return await self.conn.fetchrow(query, user_id)
 
+    async def get_user_by_id_for_update(self, user_id: int) -> Optional[asyncpg.Record]:
+        query = "SELECT * FROM users WHERE id = $1 FOR UPDATE"
+        return await self.conn.fetchrow(query, user_id)
+
     async def get_user_by_custom_id(self, custom_id: str) -> Optional[asyncpg.Record]:
         query = "SELECT * FROM users WHERE custom_id = $1"
         return await self.conn.fetchrow(query, custom_id)

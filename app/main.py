@@ -1,5 +1,11 @@
 import logging
 import asyncpg
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+)
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.config.settings import settings
@@ -38,8 +44,8 @@ async def startup_event():
     try:
         app.state.db_pool = await asyncpg.create_pool(
             dsn=settings.DATABASE_URL,
-            min_size=5,
-            max_size=20
+            min_size=settings.DB_POOL_MIN_SIZE,
+            max_size=settings.DB_POOL_MAX_SIZE
         )
         logger.info("Database connection pool created successfully.")
     except Exception as e:
