@@ -27,11 +27,11 @@
 
 # @router.get("/auth/callback")
 # async def google_callback(
-    request: Request, 
-    code: str, 
-    state: str, 
-    user_service: UserService = Depends(get_user_service)
-):
+#     request: Request, 
+#     code: str, 
+#     state: str, 
+#     user_service: UserService = Depends(get_user_service)
+# ):
 #     # Verify state to prevent CSRF
 #     if state != request.session.pop("state", None):
 #         raise HTTPException(status_code=403, detail="Invalid state token")
@@ -97,12 +97,14 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
+from typing import Optional
 from app.services.users_service import UserService
 from app.dependencies.services import get_user_service # [수정] 새로운 서비스 의존성 import
 from app.auth.jwt_handler import create_access_token
 from app.config.settings import settings
 import secrets
 import httpx
+import logging
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -116,20 +118,21 @@ async def login(request: Request):
     """Serves the login page."""
     return templates.TemplateResponse("login.html", {"request": request})
 
-@router.get("/auth/callback")
+@router.get("/rest/oauth2-credential/callback")
 async def google_callback(
-    request: Request, 
-    code: str, 
-    state: str, 
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None, # 오류 파라미터 추가
     user_service: UserService = Depends(get_user_service)
-):
-# [수정 후] 올바른 서비스 의존성 주입 사용, conn 제거
-async def google_callback(
-    request: Request, 
-    code: str, 
-    state: str, 
-    user_service: UserService = Depends(get_user_service)
-):
+):    # 사용자가 접근을 거부했거나 오류가 발생한 경우
+    if error:
+        return RedirectResponse(url=f"/login?error={error}")
+
+    # code 또는 state가 없는 비정상적인 요청의 경우
+    if not code or not state:
+        return RedirectResponse(url="/login?error=invalid_request")
+
     if state != request.session.pop("state", None):
         raise HTTPException(status_code=403, detail="Invalid state token")
     
@@ -188,6 +191,7 @@ async def login_google(request: Request):
         f"&access_type=offline"
         f"&state={state}"
     )
+    logging.info(f"Redirecting to Google for authentication: {google_auth_url}")
     return RedirectResponse(google_auth_url)
 
 @router.get("/logout")

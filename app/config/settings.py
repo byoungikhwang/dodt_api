@@ -19,10 +19,10 @@ class Settings(BaseSettings):
     # [수정 전] .env 파일의 변수명(POSTGRES_SERVER)과 불일치
     # POSTGRES_HOST: str = "localhost"
     
-    # [수정 후] .env 파일의 키값인 POSTGRES_SERVER로 변수명 통일
-    POSTGRES_SERVER: str = "localhost"
+    # [수정 후] .env 파일의 키값인 db_host로 변수명 통일
+    db_host: str
     
-    POSTGRES_PORT: int = 5432
+    db_port: int
     
     # [수정 전] .env 값(main_db)과 다른 기본값 사용으로 혼동 우려
     # POSTGRES_DB: str = "tdd"
@@ -48,9 +48,9 @@ class Settings(BaseSettings):
         # [수정 전] self.POSTGRES_HOST 사용 (변수명 변경으로 인해 에러 발생 가능성)
         # return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD} @{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         
-        # [수정 후] 변경된 변수명(POSTGRES_SERVER) 적용 및 asyncpg 프로토콜 명시
+        # [수정 후] 변경된 변수명(db_host) 적용 및 asyncpg 프로토콜 명시
         # 참고: 비밀번호에 특수문자가 있을 경우 URL 인코딩이 필요할 수 있으나, 현재는 기본 구조를 유지합니다.
-        return f"postgresql://{self.POSTGRES_USER}:{quote_plus(self.POSTGRES_PASSWORD)}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return f"postgresql://{self.POSTGRES_USER}:{quote_plus(self.POSTGRES_PASSWORD)}@{self.db_host}:{self.db_port}/{self.POSTGRES_DB}"
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"

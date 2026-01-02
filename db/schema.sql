@@ -29,11 +29,14 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+
 -- CRUD 예제: users
 -- C (Create):
 -- INSERT INTO users (email, name, picture, role) VALUES ('test@example.com', '테스트유저', 'picture_url', 'MEMBER');
 -- R (Read):
--- SELECT * FROM users;
+ SELECT * FROM users;
+ 
 -- SELECT * FROM users WHERE email = 'test@example.com';
 -- U (Update):
 -- UPDATE users SET name = '새이름' WHERE email = 'test@example.com';

@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 asyncpg
-pydantic
+pydantic[email]
 pydantic-settings
 python-dotenv
 httpx
