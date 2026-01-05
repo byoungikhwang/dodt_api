@@ -84,3 +84,33 @@ class AnalysisResult(AnalysisResultInDB):
     API 응답으로 클라이언트에게 노출될 분석 결과 정보
     """
     pass
+
+
+# =...
+# Media Schemas
+# =...
+
+class MediaResponse(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    description: Optional[str] = None
+    media_type: str
+    url: str
+    hashtags: Optional[List[str]] = []
+    created_at: datetime
+    creator_name: Optional[str] = None
+    creator_picture: Optional[HttpUrl] = None
+    like_count: int = 0
+    liked_by_user: bool = False
+
+    class Config:
+        from_attributes = True
+
+class MediaListResponse(BaseModel):
+    success: bool = True
+    data: List[MediaResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int

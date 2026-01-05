@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS users (
 -- R (Read):
  SELECT * FROM users;
  
--- SELECT * FROM users WHERE email = 'test@example.com';
--- U (Update):
+SELECT * FROM users 
+
 -- UPDATE users SET name = '새이름' WHERE email = 'test@example.com';
 -- D (Delete):
 -- DELETE FROM users WHERE email = 'test@example.com';
@@ -121,3 +121,40 @@ CREATE TABLE IF NOT EXISTS style_logs (
 
 -- 스키마 적용 후, 테이블이 올바르게 생성되었는지 확인하는 쿼리
 SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
+
+    2 INSERT INTO users (email, custom_id, name, picture, role, credits) VALUES
+    3     ('admin@example.com', 'admin_id', 'Admin User', 'https://example.com/admin_pic.jpg', 'ADMIN', 100),
+    4     ('user@example.com', 'user_id', 'Test User', 'https://example.com/user_pic.jpg', 'MEMBER', 50)
+    5 ON CONFLICT (email) DO UPDATE SET
+    6     custom_id = EXCLUDED.custom_id,
+    7     name = EXCLUDED.name,
+    8     picture = EXCLUDED.picture,
+    9     role = EXCLUDED.role,
+   10     credits = EXCLUDED.credits;
+
+--    12 -- Sample data for media table
+--    13 -- Assuming user IDs 1 and 2 exist from above insertions
+   14 INSERT INTO media (user_id, title, description, media_type, url, hashtags) VALUES
+   15     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), 'Admin Image 1', 'First image from admin.', 'image', '/static/uploads/admin_image_01.png', ARRAY['#admin', '#first_upload']),
+   16     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), 'Admin Video 1', 'First video from admin, very popular!', 'video', '/static/uploads/admin_video_01.mp4', ARRAY['#admin', '#video', 
+      '#popular'] ),
+   17     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), 'User Image 1', 'A beautiful photo by test user.', 'image', '/static/uploads/user_image_01.png', ARRAY['#user', '#nature']),
+   18     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), 'User Video 1', 'Test user''s awesome clip.', 'video', '/static/uploads/user_video_01.mp4', ARRAY['#user', '#clip'])
+   19 ON CONFLICT DO NOTHING; -- Assuming (user_id, title, url) could be a unique constraint, or simply avoid re-insertion for existing data.
+   20 
+   21 -- Sample data for media_likes table
+   22 -- Admin user likes all media
+   23 INSERT INTO media_likes (user_id, media_id) VALUES
+   24     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), (SELECT id FROM media WHERE title = 'Admin Image 1')),
+   25     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), (SELECT id FROM media WHERE title = 'Admin Video 1')),
+   26     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), (SELECT id FROM media WHERE title = 'User Image 1')),
+   27     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), (SELECT id FROM media WHERE title = 'User Video 1'));
+   28 
+   29 -- Test user likes admin's popular video
+   30 INSERT INTO media_likes (user_id, media_id) VALUES
+   31     ((SELECT id FROM users WHERE email = 'byoungikhwang@gmail.com'), (SELECT id FROM media WHERE title = 'Admin Video 1'))
+   32 ON CONFLICT DO NOTHING; -- Avoid re-insertion for existing likes.
+
+--   위 쿼리 실행 후, FastAPI 애플리케이션을 다시 시작하고 api/media 엔드포인트에 요청을 보내면 정상적으로 데이터가 반환될 것입니다.
+
+ SELECT * FROM media;

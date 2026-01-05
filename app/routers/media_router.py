@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, Query
+from fastapi import APIRouter, Depends, UploadFile, File, Form, Query, HTTPException
 from app.services.media_service import MediaService
 from app.dependencies.auth import get_current_admin, get_current_user, get_optional_user
 from app.dependencies.db_connection import get_db_connection
 import asyncpg
+import asyncio
 from typing import List, Optional
+from app.schemas import MediaListResponse
 
 router = APIRouter(prefix="/api/media", tags=["media"])
 
@@ -20,7 +22,7 @@ async def upload_media(
 ):
     return await media_service.upload_media(conn, title, description, media_type, hashtags, file, user)
 
-@router.get("/", response_model=List[dict])
+@router.get("/", response_model=MediaListResponse)
 async def get_feed_media(
     sort: str = Query('latest', enum=['latest', 'popular']),
     search: Optional[str] = Query(None),
@@ -30,10 +32,31 @@ async def get_feed_media(
     media_service: MediaService = Depends(),
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
-    offset = (page - 1) * limit
-    current_user_id = int(user["sub"]) if user else None
-    media_items = await media_service.get_feed_media(conn, sort, search, limit, offset, current_user_id=current_user_id)
-    return media_items
+    try:
+        offset = (page - 1) * limit
+        current_user_id = int(user["sub"]) if user else None
+
+        # Fetch media items and total count concurrently
+        results = await asyncio.gather(
+            media_service.get_feed_media(conn, sort, search, limit, offset, current_user_id=current_user_id),
+            media_service.get_total_media_count(conn, search)
+        )
+        media_items, total = results[0], results[1]
+
+        total_pages = (total + limit - 1) // limit
+
+        return {
+            "success": True,
+            "data": media_items,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
+    except Exception as e:
+        # Proper logging should be implemented here
+        print(f"Error fetching feed media: {e}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while fetching the feed.")
 
 @router.post("/{media_id}/like", status_code=200)
 async def toggle_media_like(

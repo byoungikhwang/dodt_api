@@ -46,6 +46,9 @@ class MediaService:
         media_items = await self.media_repo.get_feed_media(conn, sort, search, limit, offset, current_user_id)
         return [dict(item) for item in media_items]
 
+    async def get_total_media_count(self, conn: asyncpg.Connection, search: Optional[str]) -> int:
+        return await self.media_repo.get_total_media_count(conn, search)
+
     async def toggle_like(self, conn: asyncpg.Connection, media_id: int, user_id: int):
         # Check if media exists
         media = await self.media_repo.get_media_by_id(conn, media_id)

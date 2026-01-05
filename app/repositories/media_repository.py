@@ -14,23 +14,20 @@ class MediaRepository:
         params = []
         param_idx = 1
 
-        # Base query
-        query_select_parts = [
-            "SELECT",
-            "    m.id, m.user_id, m.title, m.description, m.media_type, m.url, m.hashtags, m.created_at,",
-            "    u.name as creator_name,",
-            "    u.picture as creator_picture,",
-            "    COUNT(ml.media_id) as like_count"
-        ]
-
+        liked_by_user_expression = "COALESCE(bool_or(ml.user_id = $1), FALSE) as liked_by_user"
         if current_user_id:
-            query_select_parts.append(f", bool_or(ml.user_id = ${param_idx}) as liked_by_user")
             params.append(current_user_id)
             param_idx += 1
-        
-        query_select = " ".join(query_select_parts)
+        else:
+            liked_by_user_expression = "FALSE as liked_by_user"
 
-        query_from = """
+        query = f"""
+            SELECT
+                m.id, m.user_id, m.title, m.description, m.media_type, m.url, m.hashtags, m.created_at,
+                u.name as creator_name,
+                u.picture as creator_picture,
+                COUNT(ml.media_id) as like_count,
+                {liked_by_user_expression}
             FROM media m
             JOIN users u ON m.user_id = u.id
             LEFT JOIN media_likes ml ON m.id = ml.media_id
@@ -39,7 +36,7 @@ class MediaRepository:
         where_clauses = []
         if search:
             if search.startswith('#'):
-                where_clauses.append(f"${param_idx} = ANY(m.hashtags)")
+                where_clauses.append(f"EXISTS (SELECT 1 FROM unnest(m.hashtags) AS hashtag WHERE lower(hashtag) = lower(${param_idx}))")
                 params.append(search)
                 param_idx += 1
             else:
@@ -47,23 +44,43 @@ class MediaRepository:
                 params.append(f"%{search}%")
                 param_idx += 1
         
-        query_where = ""
         if where_clauses:
-            query_where = " WHERE " + " AND ".join(where_clauses)
+            query += " WHERE " + " AND ".join(where_clauses)
 
-        query_group_by = " GROUP BY m.id, u.id"
+        query += " GROUP BY m.id, u.name, u.picture"
 
         if sort == 'popular':
-            query_order_by = " ORDER BY like_count DESC, m.created_at DESC"
+            query += " ORDER BY like_count DESC, m.created_at DESC"
         else: # Default to 'latest'
-            query_order_by = " ORDER BY m.created_at DESC"
+            query += " ORDER BY m.created_at DESC"
 
-        query_limit_offset = f" LIMIT ${param_idx} OFFSET ${param_idx + 1}"
+        query += f" LIMIT ${param_idx} OFFSET ${param_idx + 1}"
         params.extend([limit, offset])
 
-        final_query = query_select + query_from + query_where + query_group_by + query_order_by + query_limit_offset
+        return await conn.fetch(query, *params)
+
+    async def get_total_media_count(self, conn: asyncpg.Connection, search: Optional[str]):
+        params = []
+        param_idx = 1
         
-        return await conn.fetch(final_query, *params)
+        query = "SELECT COUNT(DISTINCT m.id) FROM media m"
+        
+        where_clauses = []
+        if search:
+            if search.startswith('#'):
+                where_clauses.append(f"EXISTS (SELECT 1 FROM unnest(m.hashtags) AS hashtag WHERE lower(hashtag) = lower(${param_idx}))")
+                params.append(search)
+                param_idx += 1
+            else:
+                where_clauses.append(f"(m.title ILIKE ${param_idx} OR m.description ILIKE ${param_idx})")
+                params.append(f"%{search}%")
+                param_idx += 1
+
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+
+        count_record = await conn.fetchrow(query, *params)
+        return count_record[0] if count_record else 0
 
     async def get_media_by_id(self, conn: asyncpg.Connection, media_id: int):
         query = "SELECT * FROM media WHERE id = $1"
