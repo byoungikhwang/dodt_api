@@ -47,7 +47,7 @@ class MediaRepository:
         if where_clauses:
             query += " WHERE " + " AND ".join(where_clauses)
 
-        query += " GROUP BY m.id, u.name, u.picture"
+        query += " GROUP BY m.id, m.user_id, m.title, m.description, m.media_type, m.url, m.hashtags, m.created_at, u.name, u.picture"
 
         if sort == 'popular':
             query += " ORDER BY like_count DESC, m.created_at DESC"
